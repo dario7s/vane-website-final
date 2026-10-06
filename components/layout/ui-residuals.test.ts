@@ -2,7 +2,7 @@ import type { ReactElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const state = vi.hoisted(() => ({
-  view: 'header' as 'header' | 'loading' | 'inquiry' | 'waitlist',
+  view: 'header' as 'header' | 'loading' | 'inquiry' | 'waitlist' | 'form',
   locale: 'en' as 'en' | 'de' | null,
   hookIndex: 0,
   effects: [] as Array<() => unknown>,
@@ -167,6 +167,23 @@ describe('concise success feedback', () => {
     expect(text.match(locale === 'de' ? /Warteliste/g : /waitlist/g)).toHaveLength(1)
     expect(text).toContain(locale === 'de' ? 'sobald der Zugang verfügbar ist' : 'when access is available')
     expect(text).toContain(locale === 'de' ? 'nachdem du deine E Mail Adresse bestätigt hast' : 'after you confirm your email address')
+  })
+
+  it.each([
+    [undefined, 'audience:coach:final'],
+    ['Windows', 'Windows'],
+  ] as const)('submits the waitlist source (prop %s → %s)', async (source, expected) => {
+    state.view = 'form'
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    vi.stubGlobal('FormData', class {
+      get(name: string) { return name === 'email' ? 'name@example.com' : null }
+    })
+    const form = descendants(AudienceWaitlistForm({ audience: 'coach', locale: 'en', cta: '', note: '', source }))
+      .find((element) => element.type === 'form')
+    await (form?.props.onSubmit as (event: unknown) => Promise<void>)({ preventDefault: () => {}, currentTarget: {} })
+    const body = JSON.parse(String((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body))
+    expect(body).toMatchObject({ segment: 'coach', source: expected })
   })
 
   it('uses natural English inquiry confirmation and retains the booking caveat', () => {

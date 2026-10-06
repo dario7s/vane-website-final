@@ -38,6 +38,7 @@ export function AudienceWaitlistForm({
     if (requestPending.current) return
 
     const form = new FormData(event.currentTarget)
+    const submitSource = source ?? `audience:${audience}:final`
     const updatesConsent = form.get('updatesConsent') === 'on'
     requestPending.current = true
     setStatus('submitting')
@@ -48,7 +49,7 @@ export function AudienceWaitlistForm({
         email: String(form.get('email') ?? '').trim(),
         segment: audience,
         locale,
-        source: source ?? `audience:${audience}:final`,
+        source: submitSource,
         updatesConsent,
         company: String(form.get('company') ?? ''),
       })
@@ -71,7 +72,7 @@ export function AudienceWaitlistForm({
     setUpdatesRequested(updatesConsent)
     setStatus('success')
     try {
-      trackEvent('waitlist_submit', { segment: audience, locale })
+      trackEvent('waitlist_submit', { segment: audience, locale, source: submitSource })
     } catch {
       // Analytics must not turn a confirmed signup into a retryable error.
     }

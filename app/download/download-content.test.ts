@@ -87,6 +87,12 @@ describe('download page: unsigned Mac test build', () => {
     expect(state.waitlistProps).toHaveLength(0)
   })
 
+  it('omits the macOS version when the manifest gives none', () => {
+    const html = render({ manifestState: readyState({ minimumOs: {} }) })
+    expect(html).toContain('Apple Silicon (M1 or later)')
+    expect(html).not.toContain('macOS')
+  })
+
   it('shows the fixed warning once when the label repeats it', () => {
     const html = render({ manifestState: readyState({ label: UNSIGNED_WARNINGS.en[0] }) })
     expect(html.split(UNSIGNED_WARNINGS.en[0])).toHaveLength(2)

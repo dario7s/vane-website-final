@@ -119,7 +119,40 @@ export const MANIFEST_MAX_BYTES = 256 * 1024
 type FetchLike = (input: string, init?: RequestInit & { next?: { revalidate?: number } }) => Promise<Response>
 
 /**
+ * Read at most `limit` bytes of a response body. Returns null when the
+ * declared or actual size is larger, so an oversized file is never buffered.
+ */
+export async function readBoundedText(response: Response, limit: number = MANIFEST_MAX_BYTES): Promise<string | null> {
+  const declared = response.headers.get('content-length')
+  if (declared !== null && (!/^\d+$/.test(declared.trim()) || Number(declared) > limit)) return null
+  if (!response.body) return ''
+
+  const reader = response.body.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    total += value.byteLength
+    if (total > limit) {
+      await reader.cancel().catch(() => {})
+      return null
+    }
+    chunks.push(value)
+  }
+  const bytes = new Uint8Array(total)
+  let offset = 0
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+}
+
+/**
  * Read the release manifest from `MQS_RELEASE_MANIFEST_URL`.
+ * Redirects are followed (GitHub Releases answers 302), but the final URL must
+ * pass the same HTTPS check, and relative file URLs resolve against it.
  * No URL, a network error, a non-2xx answer, an oversized or malformed body,
  * or a schema mismatch all return `{ state: 'none' }`. It never throws.
  */
@@ -134,16 +167,21 @@ export async function loadReleaseManifest(
   try {
     const response = await fetchImpl(url, {
       headers: { accept: 'application/json' },
-      redirect: 'error',
+      redirect: 'follow',
       signal: AbortSignal.timeout(MANIFEST_FETCH_TIMEOUT_MS),
       next: { revalidate: MANIFEST_REVALIDATE_SECONDS },
     })
     if (!response.ok) return { state: 'none' }
 
-    const text = await response.text()
-    if (text.length > MANIFEST_MAX_BYTES) return { state: 'none' }
+    // Next's de-duplicated responses can carry an empty url; then no redirect
+    // is known and the configured URL is the base.
+    const finalUrl = response.url || url
+    if (!resolveManifestUrl(finalUrl, finalUrl)) return { state: 'none' }
 
-    const manifest = parseReleaseManifest(JSON.parse(text), url)
+    const text = await readBoundedText(response)
+    if (text === null) return { state: 'none' }
+
+    const manifest = parseReleaseManifest(JSON.parse(text), finalUrl)
     return manifest ? { state: 'ready', manifest } : { state: 'none' }
   } catch {
     return { state: 'none' }

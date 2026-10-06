@@ -10,7 +10,7 @@ export const legalSlotLines = {
 
 export const legalSlotTitles = {
   'subscription-terms': { en: 'Subscription terms', de: 'Abonnementbedingungen' },
-  refunds: { en: 'Refunds', de: 'Erstattungen' },
+  refunds: { en: 'Refunds', de: 'Rückerstattungen' },
   'app-privacy': { en: 'App privacy', de: 'Datenschutz in der App' },
 } as const
 

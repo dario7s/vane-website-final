@@ -195,8 +195,9 @@ function MacPanel({ manifest, locale, t }: { manifest: ReleaseManifest; locale: 
     return <div className={cardClass}><p role="status" className="text-lg">{t.noMacFile}</p></div>
   }
 
-  const major = macOsMajor(manifest.minimumOs.mac) ?? '12'
-  const requirement = `${file.arch === 'arm64' ? t.appleSilicon : t.intel} · macOS ${major}+`
+  const major = macOsMajor(manifest.minimumOs.mac)
+  const chip = file.arch === 'arm64' ? t.appleSilicon : t.intel
+  const requirement = major ? `${chip} · macOS ${major}+` : chip
 
   return (
     <div className={cardClass}>

@@ -7,6 +7,7 @@ import {
   MANIFEST_REVALIDATE_SECONDS,
   parseReleaseManifest,
   pickMacFile,
+  readBoundedText,
   releaseFileSchema,
   releaseManifestSchema,
   resolveManifestUrl,
@@ -162,6 +163,53 @@ describe('loadReleaseManifest', () => {
     const init = fetcher.mock.calls[0][1] as unknown as { next: { revalidate: number }; redirect: string }
     expect(init.next.revalidate).toBe(MANIFEST_REVALIDATE_SECONDS)
     expect(MANIFEST_REVALIDATE_SECONDS).toBeLessThanOrEqual(600)
-    expect(init.redirect).toBe('error')
+    expect(init.redirect).toBe('follow')
+  })
+
+  function redirected(body: string, finalUrl: string, headers: Record<string, string> = {}) {
+    return async () => {
+      const response = new Response(body, { status: 200, headers })
+      Object.defineProperty(response, 'url', { value: finalUrl })
+      return response
+    }
+  }
+
+  it('follows a redirect (GitHub Releases answers 302) and resolves files against the final URL', async () => {
+    const finalUrl = 'https://objects.example.test/releases/abc/manifest.json'
+    const result = await loadReleaseManifest(MANIFEST_URL, redirected(JSON.stringify(validManifest()), finalUrl))
+    expect(result.state).toBe('ready')
+    if (result.state !== 'ready') return
+    expect(result.manifest.files[1].url).toBe('https://objects.example.test/releases/abc/MQS-example-arm64.dmg')
+  })
+
+  it('refuses a redirect that ends on plain HTTP', async () => {
+    const result = await loadReleaseManifest(MANIFEST_URL, redirected(JSON.stringify(validManifest()), 'http://objects.example.test/manifest.json'))
+    expect(result).toEqual({ state: 'none' })
+  })
+
+  it('refuses a declared Content-Length over the limit without reading the body', async () => {
+    const body = new ReadableStream({ pull: () => { throw new Error('body must not be read') } })
+    const fetcher = async () => new Response(body, { status: 200, headers: { 'content-length': String(300 * 1024) } })
+    await expect(loadReleaseManifest(MANIFEST_URL, fetcher)).resolves.toEqual({ state: 'none' })
+  })
+})
+
+describe('readBoundedText', () => {
+  it('counts bytes, not characters', async () => {
+    const text = 'ä'.repeat(6) // 6 characters, 12 UTF-8 bytes
+    await expect(readBoundedText(new Response(text), 12)).resolves.toBe(text)
+    await expect(readBoundedText(new Response(text), 11)).resolves.toBeNull()
+  })
+
+  it('stops a body without Content-Length once it passes the limit', async () => {
+    const chunk = new TextEncoder().encode('x'.repeat(100))
+    let pulls = 0
+    const stream = new ReadableStream<Uint8Array>({ pull: (controller) => { pulls++; controller.enqueue(chunk) } })
+    await expect(readBoundedText(new Response(stream), 250)).resolves.toBeNull()
+    expect(pulls).toBeLessThan(10)
+  })
+
+  it('refuses a malformed Content-Length', async () => {
+    await expect(readBoundedText(new Response('{}', { headers: { 'content-length': 'abc' } }))).resolves.toBeNull()
   })
 })
