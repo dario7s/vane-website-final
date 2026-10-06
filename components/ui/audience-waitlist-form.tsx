@@ -13,11 +13,14 @@ export function AudienceWaitlistForm({
   locale,
   cta,
   note,
+  source,
 }: {
   audience: 'athlete' | 'coach' | 'partner'
   locale: Locale
   cta: string
   note: string
+  /** Brevo `VANE_SOURCE`; defaults to the audience page's final form. */
+  source?: string
 }) {
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
   const [error, setError] = useState('')
@@ -45,7 +48,7 @@ export function AudienceWaitlistForm({
         email: String(form.get('email') ?? '').trim(),
         segment: audience,
         locale,
-        source: `audience:${audience}:final`,
+        source: source ?? `audience:${audience}:final`,
         updatesConsent,
         company: String(form.get('company') ?? ''),
       })

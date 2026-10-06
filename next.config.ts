@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url'
 import type { NextConfig } from 'next'
+import { BETA_PAGE_PATHS, BETA_ROBOTS_HEADER } from './lib/beta-pages'
 
 const projectRoot = fileURLToPath(new URL('.', import.meta.url))
 
@@ -27,6 +28,11 @@ const nextConfig: NextConfig = {
 
   async headers() {
     return [
+      // Beta pages are reachable by link only: never indexed (see lib/beta-pages.ts).
+      ...BETA_PAGE_PATHS.map((source) => ({
+        source,
+        headers: [{ ...BETA_ROBOTS_HEADER }],
+      })),
       {
         source: '/studio/:path*',
         headers: [

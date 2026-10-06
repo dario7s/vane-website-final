@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vanescience.com/schemas/mqs-release-manifest-1.json",
+  "title": "MQS release manifest (mqs-release-manifest/1)",
+  "description": "Written by packages/desktop/scripts/release.mjs next to the installers (research §4.4 step 4); read by the website's /download page (research §4.5) and by people checking a download. A human promotion step copies it into the channel folder; nothing reads an unpromoted manifest. Relative file URLs resolve against the manifest's own URL.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "product", "channel", "version", "releasedAt", "signed", "label", "minimumOs", "files"],
+  "properties": {
+    "schemaVersion": { "const": "mqs-release-manifest/1" },
+    "product": { "const": "MQS" },
+    "channel": { "enum": ["test", "beta", "stable"] },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$" },
+    "releasedAt": { "type": "string", "format": "date-time" },
+    "signed": { "type": "boolean", "description": "true only for a Developer ID signed and notarized build" },
+    "label": { "type": "string", "maxLength": 200, "description": "Shown next to the button, e.g. 'Unsigned test build, not for coaches'" },
+    "releaseNotesUrl": { "type": ["string", "null"] },
+    "sourceCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "minimumOs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "mac": { "type": "string" }, "windows": { "type": "string" } }
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["os", "arch", "kind", "name", "url", "bytes", "sha256"],
+        "properties": {
+          "os": { "enum": ["mac", "windows"] },
+          "arch": { "enum": ["arm64", "x64"] },
+          "kind": { "enum": ["dmg", "zip", "nsis"] },
+          "name": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+          "url": { "type": "string" },
+          "bytes": { "type": "integer", "minimum": 1 },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    }
+  }
+}
