@@ -436,7 +436,7 @@ Use an accordion. Answers are short on purpose.
 - **Does the AI decide the training?**
   No. MQS tells you which qualities need training. You choose the exercises and build the plan.
 - **Who can see my athletes' data?**
-  Only you and the people you invite. NormVault receives anonymised numbers only, never names or video.
+  You and the people you invite. VANE Science processes your athletes' data only on your behalf, as your processor, to run MQS for you, for example to write AI reports. NormVault receives anonymised numbers only, never names or video.
 - **Mac or Windows?**
   Both. The MQS Capture app runs on iPhone.
 - **Is MQS a medical device?**
