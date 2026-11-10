@@ -275,7 +275,7 @@ export const coachContent: Record<Locale, CoachCopy> = {
           {
             title: "Who can see my athletes' data?",
             description:
-              'Only you and the people you invite. NormVault receives anonymised numbers only, never names or video.',
+              "You and the people you invite. VANE Science processes your athletes' data only on your behalf, as your processor, to run MQS for you, for example to write AI reports. NormVault receives anonymised numbers only, never names or video.",
           },
           {
             title: 'Mac or Windows?',
@@ -482,7 +482,7 @@ export const coachContent: Record<Locale, CoachCopy> = {
           {
             title: 'Wer sieht die Daten meiner Athleten?',
             description:
-              'Nur du und die Personen, die du einlädst. NormVault erhält nur anonymisierte Zahlen, niemals Namen oder Videos.',
+              'Du und die Personen, die du einlädst. VANE Science verarbeitet die Daten deiner Athleten nur in deinem Auftrag, als dein Auftragsverarbeiter, um MQS für dich zu betreiben, zum Beispiel für KI-Berichte. NormVault erhält nur anonymisierte Zahlen, niemals Namen oder Videos.',
           },
           {
             title: 'Mac oder Windows?',
