@@ -301,15 +301,27 @@ async function checkG3(browser) {
 
 // ---------- HTTP checks (G4, G5, G6, G7) ----------
 
+/** A request with the bypass header. It goes to the staging origin only; each other origin is an error. */
+async function stagingFetch(url, init = {}, timeout) {
+  if (new URL(url).origin !== base.origin) throw new Error(`refused to send the bypass header to ${new URL(url).origin}`)
+  return fetchWithTimeout(url, { ...init, headers: { ...(init.headers ?? {}), ...bypassHeaders } }, timeout)
+}
+
+/** The installer file that the manifest names for a system: the DMG for macOS, the NSIS installer for Windows. */
+function manifestInstaller(manifest, os) {
+  const files = (manifest.files ?? []).filter((file) => file.os === os && file.kind === EXPECTED[os].kind)
+  return (os === 'mac' ? files.find((file) => file.arch === 'arm64') : undefined) ?? files[0]
+}
+
 async function stagingManifest(os) {
-  const response = await fetchWithTimeout(stagingUrl(`/api/download/${os}/manifest`), { headers: bypassHeaders, cache: 'no-store' })
+  const response = await stagingFetch(stagingUrl(`/api/download/${os}/manifest`), { cache: 'no-store' })
   if (!response.ok) throw new Error(`the staging manifest route for ${os} answered ${response.status}`)
   return response.json()
 }
 
 /** The download host address that a staging link redirects to. */
 async function resolveDownloadLink(link) {
-  const response = await fetchWithTimeout(link, { headers: bypassHeaders, redirect: 'manual' })
+  const response = await stagingFetch(link, { redirect: 'manual' })
   const location = response.headers.get('location')
   if (response.status < 300 || response.status > 399 || !location) {
     throw new Error(`the staging link answered ${response.status} with no redirect`)
@@ -322,6 +334,7 @@ async function checkG4() {
     try {
       const link = downloadLinks[os]
       if (!link) throw new Error('no button link from the download page (G3)')
+      if (new URL(link).origin !== base.origin) throw new Error(`the button link goes to ${new URL(link).origin}, not the staging site`)
       const target = await resolveDownloadLink(link)
       const manifest = await stagingManifest(os)
       if (manifest.version !== EXPECTED[os].version) throw new Error(`manifest version is ${manifest.version}, not ${EXPECTED[os].version}`)
@@ -369,19 +382,20 @@ async function checkG6() {
     record('G6', false, safeError(error))
   }
   for (const os of ['mac', 'windows']) {
-    // The channel of the link must stay test, also when the visitor asks for another channel.
-    for (const query of ['', '?channel=stable', '?ch=beta']) {
-      try {
-        const target = await resolveDownloadLink(stagingUrl(`/api/download/${os}${query}`))
-        if (target.origin !== DOWNLOAD_HOST) throw new Error(`the link goes to ${target.origin}`)
-        if (/^\/mqs\/(stable|beta)\//u.test(target.pathname)) throw new Error(`the link opens ${target.pathname}`)
-        if (!target.pathname.startsWith('/mqs/test/')) throw new Error(`the link opens ${target.pathname}, not mqs/test/`)
-      } catch (error) {
-        record('G6', false, `${os}${query}: ${safeError(error)}`)
-      }
+    // The redirect must open exactly /mqs/test/<installer of the manifest> on the download host, with only the token.
+    try {
+      const manifest = await stagingManifest(os)
+      const installer = manifestInstaller(manifest, os)
+      if (!installer) throw new Error('the manifest names no installer')
+      const target = await resolveDownloadLink(stagingUrl(`/api/download/${os}`))
+      if (target.origin !== DOWNLOAD_HOST) throw new Error(`the link goes to ${target.origin}`)
+      if (target.pathname !== `/mqs/test/${installer.name}`) throw new Error(`the link opens ${target.pathname}, not /mqs/test/${installer.name}`)
+      if ([...target.searchParams.keys()].join(',') !== 't') throw new Error('the link has other query values than the token')
+    } catch (error) {
+      record('G6', false, `${os}: ${safeError(error)}`)
     }
   }
-  if (results.get('G6')?.ok) record('G6', true, 'staging links open mqs/test/ only')
+  if (results.get('G6')?.ok) record('G6', true, 'each staging link opens exactly /mqs/test/<installer of the manifest>')
 }
 
 async function checkG7() {
@@ -406,15 +420,16 @@ async function checkG7() {
       const login = response.status === 401 || (response.status >= 300 && response.status < 400 &&
         /vercel\.com/u.test(response.headers.get('location') ?? ''))
       if (!login) throw new Error(`${path} without the bypass answered ${response.status}`)
+      if ((response.headers.get('location') ?? '').includes('download.vanescience.com')) throw new Error(`${path} without the bypass redirects to the download host`)
       if (/Human Movement|Downloads|download\.vanescience\.com/u.test(body)) throw new Error(`${path} without the bypass shows page content`)
     }
-    record('G7', true, 'staging without login answers 401 or the Vercel login')
+    record('G7', true, 'staging pages and /api/download/mac without login answer 401 or the Vercel login, no download redirect')
   } catch (error) {
     record('G7', false, safeError(error))
   }
   try {
     for (const path of ['/', '/for/coach', '/download']) {
-      const response = await fetchWithTimeout(stagingUrl(path), { headers: { ...bypassHeaders, cookie: 'vane-lang=en' } })
+      const response = await stagingFetch(stagingUrl(path), { headers: { cookie: 'vane-lang=en' } })
       if (response.status !== 200) throw new Error(`${path} with the bypass answered ${response.status}`)
       const header = response.headers.get('x-robots-tag') ?? ''
       const html = await response.text()
