@@ -324,6 +324,7 @@ export function AudienceEntry() {
         style={{ height: ENTRY_BAND_HEIGHT }}
       >
         <header className="absolute inset-x-0 top-0 z-50 mx-auto flex w-full max-w-[1600px] items-center justify-between px-5 pb-4 pt-[calc(1rem+env(safe-area-inset-top))] max-[359px]:px-3 md:px-8 md:pb-6 md:pt-[calc(1.5rem+env(safe-area-inset-top))]">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-6 md:gap-8">
           <Link
             href="/"
             className="inline-flex min-h-11 min-w-11 shrink-0 items-center whitespace-nowrap text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-black"
@@ -337,6 +338,18 @@ export function AudienceEntry() {
               className="h-[18px] w-auto md:h-[19px]"
             />
           </Link>
+          {/* Staging branch: a text link to the download page, in the accent color. Below 390px the language switch leaves no room, and a phone cannot run MQS Desktop. */}
+          <Link
+            href="/download"
+            onClick={() => trackEvent("cta_click", { location: "entry_header_download", audience: "general" })}
+            className="inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-sm text-[11px] max-[389px]:hidden leading-none text-[var(--mqs-accent)] transition-[filter] hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-black sm:text-[13px] md:text-[15px]"
+          >
+            <span className="inline-flex items-baseline gap-[0.35em]">
+              <span className="font-sans font-normal uppercase tracking-[0.04em]">Download</span>{" "}
+              <span className="font-display font-bold uppercase tracking-[0.012em]">MQS</span>
+            </span>
+          </Link>
+          </div>
           <div className="flex items-center gap-1 md:gap-2">
           <div
             className="flex shrink-0 items-center rounded-full border border-white/8 bg-black/25 p-1 backdrop-blur-md max-[359px]:p-0"

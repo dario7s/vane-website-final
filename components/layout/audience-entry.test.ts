@@ -155,7 +155,8 @@ describe('approved entry typography and copy', () => {
   })
   it('uses the existing Bebas display font and keeps the restrained hover', () => {
     expect(source).not.toContain('BarlowCondensed-SemiBold.woff2')
-    expect(source.match(/font-display/g)).toHaveLength(2)
+    // The h1, the role titles and the MQS word of the staging download label.
+    expect(source.match(/font-display/g)).toHaveLength(3)
     expect(source).not.toContain('-webkit-text-stroke')
     expect(source).toContain('font-[650]')
     expect(source).not.toContain('scale-[1.2]')

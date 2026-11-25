@@ -1,8 +1,9 @@
 'use client'
 
 import Image from 'next/image'
-import { ArrowDown, ArrowUpRight } from 'lucide-react'
+import { ArrowDown } from 'lucide-react'
 import { Container } from '@/components/ui/container'
+import { DownloadMqsButton } from '@/components/ui/download-mqs-button'
 import { coachIntroduction } from '@/lib/coach-introduction'
 import { coachCompactCopy } from '@/lib/coach-compact'
 import { trackEvent } from '@/lib/analytics'
@@ -29,9 +30,7 @@ export function CoachHero({ copy, locale }: CoachProps & { locale: Locale }) {
             </h1>
             <p className="coach-hero-intro">{beforeNormvault}<strong>NormVault</strong>{afterNormvault}</p>
             <div className="coach-hero-actions">
-              <a className="coach-hero-cta coach-hero-cta-primary" href="#waitlist" onClick={() => trackCta('hero_primary')}>
-                {audience.primaryCta}<ArrowUpRight size={18} aria-hidden="true" />
-              </a>
+              <DownloadMqsButton label={audience.primaryCta} className="min-h-[60px] px-[29px]" onClick={() => trackCta('hero_primary')} />
               <a className="coach-hero-cta coach-hero-cta-secondary" href="#benefits" onClick={() => trackCta('hero_secondary')}>
                 {ui.setupCta}<ArrowDown size={16} aria-hidden="true" />
               </a>

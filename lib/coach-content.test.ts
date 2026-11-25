@@ -35,7 +35,7 @@ describe('approved coach landing copy', () => {
     expect(coachContent.en.ui.prototype).toBe('Preliminary prototype shown. Not the finished software.')
     expect(coachContent.de.ui.prototype).toBe('Vorläufiger Prototyp. Nicht die fertige Software.')
     expect(coachCompactCopy.en.headline).toBe('Your phone is all you need to start understanding movement.')
-    expect(coachCompactCopy.en.finalText).toContain('Join the waitlist')
+    expect(coachCompactCopy.en.finalText).toContain('Download the MQS test build')
   })
   it.each(['en', 'de'] as const)('renders domains in the binding web-contract order in %s', locale => {
     expect(MQS_DOMAIN_ORDER).toEqual(['GAIT','POST','FORCE','POWER','MOTOR','NEURO','DTC'])

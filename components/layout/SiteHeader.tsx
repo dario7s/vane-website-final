@@ -48,7 +48,8 @@ const generalNav: NavLink[] = [
 
 const audienceCta: Record<AudienceSlug, { en: string; de: string }> = {
   athlete: { en: 'Request assessment', de: 'Assessment anfragen' },
-  coach: { en: 'Join the waitlist', de: 'Auf die Warteliste' },
+  // Staging branch: the coach page offers the download in place of the waitlist.
+  coach: { en: 'Download MQS', de: 'MQS herunterladen' },
   partner: { en: 'Join the waitlist', de: 'Auf die Warteliste' },
 }
 
@@ -67,7 +68,7 @@ export function SiteHeader() {
   const activeAudience = isAudienceSlug(audienceValue) ? audienceValue : null
   const navLinks = activeAudience ? audienceNav[activeAudience] : generalNav
   const investorPage = pathname === '/investors'
-  const ctaHref = activeAudience ? '#waitlist' : investorPage ? '#investor-contact' : '/'
+  const ctaHref = activeAudience === 'coach' ? '/download' : activeAudience ? '#waitlist' : investorPage ? '#investor-contact' : '/'
   const ctaLabel = activeAudience
     ? audienceCta[activeAudience][locale]
     : investorPage

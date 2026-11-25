@@ -86,7 +86,10 @@ export const coachCompactCopy: Record<Locale, AudienceCopy> = {
     finalEyebrow: 'YOUR NEXT STEP',
     finalTitle: 'BE ONE OF THE FIRST COACHES ON MQS.',
     finalText:
-      "Join the waitlist and we'll contact you as soon as your access opens.",
+      'Download the MQS test build for macOS or Windows and try it with your own athletes.',
+    // Staging branch: the download replaces the waitlist on the coach page.
+    primaryCta: 'Download MQS',
+    finalCta: 'Download MQS',
   },
   de: {
     ...audienceContent.coach.de,
@@ -172,7 +175,9 @@ export const coachCompactCopy: Record<Locale, AudienceCopy> = {
     finalEyebrow: 'DEIN NÄCHSTER SCHRITT',
     finalTitle: 'SEI EINER DER ERSTEN COACHES AUF MQS.',
     finalText:
-      'Trag dich auf die Warteliste ein. Wir melden uns, sobald dein Zugang öffnet.',
+      'Lade den MQS-Testbuild für macOS oder Windows herunter und probiere ihn mit deinen Athleten aus.',
+    primaryCta: 'MQS herunterladen',
+    finalCta: 'MQS herunterladen',
   },
 }
 

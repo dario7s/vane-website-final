@@ -13,6 +13,8 @@ import {
   CoachInterpretation,
 } from '@/components/coach/coach-details'
 import { useCoachReducedMotion } from '@/components/coach/coach-primitives'
+import { DownloadMqsButton } from '@/components/ui/download-mqs-button'
+import { trackEvent } from '@/lib/analytics'
 import { AudienceLanding } from './audience-landing'
 import './coach-landing.css'
 export function CoachLanding() {
@@ -34,6 +36,11 @@ export function CoachLanding() {
           hideResultsDecision: true,
           science: <CoachInterpretation copy={copy} locale={locale} />,
           afterFinal: <CoachFaq copy={copy} locale={locale} />,
+          finalAction: (
+            <div className="mt-9 flex justify-center">
+              <DownloadMqsButton label={coachCompactCopy[locale].finalCta} onClick={() => trackEvent('audience_cta_click', { audience: 'coach', location: 'final' })} />
+            </div>
+          ),
         }}
       />
     </div>

@@ -189,6 +189,8 @@ type AudienceCustomization = {
   science?: ReactNode
   scienceFooter?: ReactNode
   afterFinal?: ReactNode
+  /** Takes the place of the contact form in the final section. */
+  finalAction?: ReactNode
   secondaryHref?: string
 }
 
@@ -616,6 +618,7 @@ export function AudienceLanding({ audience, customization }: { audience: Audienc
           <p className="mx-auto mt-6 max-w-[60ch] text-base leading-[1.58] text-muted-foreground md:text-[17px]">
             {copy.finalText}
           </p>
+          {customization?.finalAction ?? (
           <AudienceContactForm
             key={audience}
             audience={audience}
@@ -623,6 +626,7 @@ export function AudienceLanding({ audience, customization }: { audience: Audienc
             cta={copy.finalCta}
             note={copy.finalNote}
           />
+          )}
           <Link href="/" className="mt-10 inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground">
             {locale === 'de' ? 'Andere Zielgruppe wählen' : 'Choose another audience'}
           </Link>

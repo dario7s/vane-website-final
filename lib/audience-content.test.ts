@@ -82,8 +82,8 @@ describe('approved audience copy contract', () => {
 
   it('uses the approved coach product page while retaining the waitlist access boundary', () => {
     expect(JSON.stringify(coachContent)).not.toMatch(/still in development|noch in Entwicklung/)
-    expect(coachCompactCopy.en.finalText).toContain('access opens')
-    expect(coachCompactCopy.de.finalText).toContain('Zugang')
+    expect(coachCompactCopy.en.finalText).toContain('Download the MQS test build')
+    expect(coachCompactCopy.de.finalText).toContain('Testbuild')
     expect(audienceContent.coach.en.finalNote).toContain('does not give you access')
     expect(audienceContent.coach.de.finalNote).toContain('keinen Zugang')
   })
