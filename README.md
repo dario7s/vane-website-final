@@ -4,6 +4,34 @@ Marketing site for **VANE Science** and the **MQS** (Movement Quality Score) —
 standardized assessment layer for human movement quality. Bilingual (EN/DE),
 content-driven, with an integrated Sanity CMS.
 
+## Staging branch: download prototype
+
+This section applies to the branch `staging/download-prototype` only. The branch never merges into `main`.
+Vercel makes a preview deployment of each push. The Vercel team login locks each preview address.
+
+What is on the branch:
+
+- The landing page shows the text link "DOWNLOAD MQS" at the right of the logo. It opens `/download`.
+- The coach page shows the button "Download MQS" in place of each waitlist control. The button shows the icon of the system of the visitor.
+- The page `/download` shows the test build of MQS Desktop for macOS and Windows. The button for the system of the visitor comes first and has the accent color.
+- The route `/api/download/<os>` reads `manifest-<os>.json` of the channel `test` from `download.vanescience.com`. It sends a 302 redirect to the installer with a token of 10 minutes. The file bytes do not go through Vercel.
+- The route `/api/download/<os>/manifest` gives the manifest. The staging check uses it.
+- Each deployment that is not production has `noindex`.
+- `scripts/staging-download-check.mjs` checks the goals G1 to G7 of the loop. Run `node scripts/staging-download-check.mjs`. It reads the bypass secret from `VERCEL_AUTOMATION_BYPASS_SECRET` or from the Windows credential `mqs-website-staging/vercel-bypass`.
+
+Settings (Vercel, Preview, branch `staging/download-prototype` only):
+
+- `MQS_DOWNLOAD_TOKEN_SIGNING_KEY`: the private staging key as a one-line Ed25519 JWK (sensitive). The download host accepts this key for the channel `test` only.
+- `MQS_DOWNLOAD_CHANNEL`: `test`. The site refuses each other channel.
+- Without the key, the route answers 503 and the page shows "Downloads are not available right now."
+
+What changes for production:
+
+- The site does not sign tokens. The visitor signs in, and the MQS service gives the token (`POST /v1/downloads/token`).
+- The channel becomes `stable`.
+- The staging key leaves the Vercel project and the download host.
+- The `noindex` rule stays for previews only.
+
 ## Start here: partner handoff
 
 This repository contains the complete website source, tests, fonts, images,

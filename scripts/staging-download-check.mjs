@@ -12,7 +12,8 @@ import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { chromium } from 'playwright'
 
-const DEFAULT_BASE_URL = 'https://vane-science-website-git-staging-download-prototype-vane-science.vercel.app'
+// The stable branch alias of the preview deployment (Vercel shortens the long branch name).
+const DEFAULT_BASE_URL = 'https://vane-science-website-git-staging-download-p-0d655e-vane-science.vercel.app'
 const SHOTS_DIR = 'C:/Users/mqs/Documents/vane-website-staging-shots'
 const DOWNLOAD_HOST = 'https://download.vanescience.com'
 const EXPECTED = {
@@ -110,6 +111,14 @@ async function newPage(browser, os) {
   return { context, page }
 }
 
+/** Opens a staging page and waits for the fonts and the hydration. The landing videos never let the network go idle. */
+async function open(page, path) {
+  const response = await page.goto(stagingUrl(path), { waitUntil: 'load', timeout: 60_000 })
+  await page.evaluate(() => document.fonts.ready)
+  await page.waitForTimeout(1500)
+  return response
+}
+
 /** Accent color of the site as `rgb(...)`, read from its own design token. */
 async function accentColor(page) {
   return page.evaluate(() => {
@@ -127,7 +136,7 @@ async function accentColor(page) {
 async function checkG1(browser) {
   const { context, page } = await newPage(browser, 'mac')
   try {
-    const response = await page.goto(stagingUrl('/'), { waitUntil: 'networkidle', timeout: 60_000 })
+    const response = await open(page, '/')
     if (!response || response.status() !== 200) throw new Error(`landing page answered ${response?.status()}`)
     const accent = await accentColor(page)
     const facts = await page.evaluate(() => {
@@ -225,7 +234,7 @@ async function checkG2(browser) {
   for (const os of ['mac', 'windows']) {
     const { context, page } = await newPage(browser, os)
     try {
-      const response = await page.goto(stagingUrl('/for/coach'), { waitUntil: 'networkidle', timeout: 60_000 })
+      const response = await open(page, '/for/coach')
       if (!response || response.status() !== 200) throw new Error(`For Coaches page answered ${response?.status()}`)
       const accent = await accentColor(page)
       const waitlist = await page.evaluate(() => [...document.querySelectorAll('a, button, [role="button"], input[type="submit"], input[type="button"]')]
@@ -255,7 +264,7 @@ async function checkG3(browser) {
     const other = os === 'mac' ? 'windows' : 'mac'
     const { context, page } = await newPage(browser, os)
     try {
-      const response = await page.goto(stagingUrl('/download'), { waitUntil: 'networkidle', timeout: 60_000 })
+      const response = await open(page, '/download')
       await page.screenshot({ path: join(SHOTS_DIR, `g3-download-${os}.png`), fullPage: true })
       if (!response || response.status() !== 200) { record('G3', false, `${os}: /download answered ${response?.status()}`); continue }
       const accent = await accentColor(page)
