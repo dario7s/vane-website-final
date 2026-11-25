@@ -19,8 +19,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ os:
   if (!isDownloadOs(os)) return plain(404, 'Not found')
   const config = downloadConfig()
   if (!config.ok) return plain(503, 'Downloads are not available right now.')
-  const result = await fetchManifest(config, os)
-  if (!result.ok) return plain(result.status === 404 ? 404 : 503, 'Downloads are not available right now.')
+  // fetchManifest gives a result for each failure. The catch is a second guard, so that no failure is a plain 500.
+  const result = await fetchManifest(config, os).catch(() => null)
+  if (!result || !result.ok) return plain(result?.status === 404 ? 404 : 503, 'Downloads are not available right now.')
   const file = pickInstaller(result.manifest, os)
   const target = file ? installerUrl(file, config.channel, os) : null
   if (!target) return plain(503, 'Downloads are not available right now.')

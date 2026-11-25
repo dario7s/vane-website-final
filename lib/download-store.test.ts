@@ -1,6 +1,6 @@
 import { generateKeyPairSync, verify } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
-import { downloadConfig, fetchManifest, installerUrl, parseManifest, pickInstaller, type ReleaseManifest } from './download-store'
+import { downloadConfig, downloadInfo, fetchManifest, installerUrl, parseManifest, pickInstaller, type ReleaseManifest } from './download-store'
 import { signingKeyFromJwk, TOKEN_LIFETIME_SECONDS } from './download-token'
 import { downloadOrder, osFromNavigator, osFromRequestHeaders } from './visitor-os'
 
@@ -47,12 +47,68 @@ describe('manifest', () => {
     expect(pickInstaller(windows, 'mac')).toBeNull()
   })
 
-  it('keeps each link below mqs/<channel>/ on the download host', () => {
-    expect(installerUrl(file('mac', 'dmg', 'a.dmg'), 'test', 'mac')?.toString()).toBe('https://download.vanescience.com/mqs/test/a.dmg')
-    expect(installerUrl({ ...file('mac', 'dmg', 'a.dmg'), url: '../stable/a.dmg' }, 'test', 'mac')).toBeNull()
-    expect(installerUrl({ ...file('mac', 'dmg', 'a.dmg'), url: 'https://example.com/mqs/test/a.dmg' }, 'test', 'mac')).toBeNull()
-    expect(installerUrl({ ...file('mac', 'dmg', 'a.dmg'), url: 'releases/0.1.0-test.11/a.dmg?x=1' }, 'test', 'mac')?.toString())
-      .toBe('https://download.vanescience.com/mqs/test/releases/0.1.0-test.11/a.dmg')
+  it('links only to exactly /mqs/test/<file name> on the download host', () => {
+    const dmg = file('mac', 'dmg', 'a.dmg')
+    expect(installerUrl(dmg, 'test', 'mac')?.toString()).toBe('https://download.vanescience.com/mqs/test/a.dmg')
+    expect(installerUrl({ ...dmg, url: 'https://download.vanescience.com/mqs/test/a.dmg' }, 'test', 'mac')?.toString())
+      .toBe('https://download.vanescience.com/mqs/test/a.dmg')
+    expect(installerUrl(file('windows', 'nsis', 'Setup.exe'), 'test', 'windows')?.toString()).toBe('https://download.vanescience.com/mqs/test/Setup.exe')
+    for (const url of [
+      '../stable/a.dmg',
+      '%2E%2E%2Fstable%2Fa.dmg',
+      'a.dmg%0d%0aX-Injected:%201',
+      'a%2Edmg',
+      'releases/0.1.0-test.11/a.dmg',
+      'extra/a.dmg',
+      'manifest-mac.json',
+      'b.dmg',
+      'https://example.com/mqs/test/a.dmg',
+      'https://download.vanescience.com/mqs/stable/a.dmg',
+      'https://user:pw@download.vanescience.com/mqs/test/a.dmg',
+    ]) {
+      expect(installerUrl({ ...dmg, url }, 'test', 'mac'), url).toBeNull()
+    }
+    // A manifest file or a file of the wrong kind is never an installer, also when the URL names it.
+    expect(installerUrl(file('mac', 'dmg', 'manifest-mac.json'), 'test', 'mac')).toBeNull()
+    expect(installerUrl(file('mac', 'dmg', 'a.zip'), 'test', 'mac')).toBeNull()
+    expect(installerUrl(file('windows', 'nsis', 'a.dmg'), 'test', 'windows')).toBeNull()
+  })
+
+  it('refuses to sign in a production deployment, also with a key', () => {
+    expect(downloadConfig({ VERCEL_ENV: 'production', MQS_DOWNLOAD_TOKEN_SIGNING_KEY: jwk, MQS_DOWNLOAD_CHANNEL: 'test' }))
+      .toEqual({ ok: false, reason: 'production' })
+    expect(downloadConfig({ VERCEL_ENV: 'preview', MQS_DOWNLOAD_TOKEN_SIGNING_KEY: jwk, MQS_DOWNLOAD_CHANNEL: 'test' }).ok).toBe(true)
+  })
+
+  it('treats a redirect, a stalled body and a large body as a safe failure', async () => {
+    const config = downloadConfig({ MQS_DOWNLOAD_TOKEN_SIGNING_KEY: jwk, MQS_DOWNLOAD_CHANNEL: 'test' }, () => NOW)
+    if (!config.ok) throw new Error('config')
+    let redirectMode: RequestRedirect | undefined
+    const redirecting = (async (_url: string, init?: RequestInit) => {
+      redirectMode = init?.redirect
+      // fetch with redirect "error" rejects with a TypeError on a 3xx answer.
+      throw new TypeError('redirect')
+    }) as unknown as typeof fetch
+    expect(await fetchManifest(config, 'mac', redirecting)).toMatchObject({ ok: false, status: 502 })
+    expect(redirectMode).toBe('error')
+
+    const stalled = (async (_url: string, init?: RequestInit) => {
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('{"schemaVersion":'))
+          init?.signal?.addEventListener('abort', () => controller.error(init.signal?.reason))
+        },
+      })
+      return new Response(body, { status: 200 })
+    }) as unknown as typeof fetch
+    expect(await fetchManifest(config, 'mac', stalled, 50)).toMatchObject({ ok: false, status: 502 })
+    // The page gets "not available" for the same failure, not an error.
+    expect(await downloadInfo('mac', config, stalled, 50)).toEqual({ os: 'mac', version: null })
+
+    const large = (async () => new Response(new Uint8Array(300 * 1024), { status: 200 })) as unknown as typeof fetch
+    expect(await fetchManifest(config, 'mac', large)).toMatchObject({ ok: false, reason: 'The manifest is too large.' })
+    const declaredLarge = (async () => new Response('{}', { status: 200, headers: { 'content-length': String(10 ** 9) } })) as unknown as typeof fetch
+    expect(await fetchManifest(config, 'mac', declaredLarge)).toMatchObject({ ok: false, reason: 'The manifest is too large.' })
   })
 
   it('refuses a manifest of another channel or form', () => {

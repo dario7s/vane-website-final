@@ -10,6 +10,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': projectRoot,
+      // Outside the React server build, `server-only` throws on import. The tests load its empty server entry.
+      'server-only': fileURLToPath(new URL('./node_modules/server-only/empty.js', import.meta.url)),
     },
   },
   test: {

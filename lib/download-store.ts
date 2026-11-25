@@ -1,3 +1,4 @@
+import 'server-only'
 import { signDownloadToken, signingKeyFromJwk } from './download-token'
 import type { DownloadOs } from './visitor-os'
 
@@ -33,10 +34,14 @@ export type ReleaseManifest = {
 
 export type DownloadConfig =
   | { ok: true; channel: string; token: () => string }
-  | { ok: false; reason: 'no-key' | 'bad-channel' }
+  | { ok: false; reason: 'production' | 'no-key' | 'bad-channel' }
 
-/** The key and the channel from `MQS_DOWNLOAD_TOKEN_SIGNING_KEY` and `MQS_DOWNLOAD_CHANNEL`. */
+/**
+ * The key and the channel from `MQS_DOWNLOAD_TOKEN_SIGNING_KEY` and `MQS_DOWNLOAD_CHANNEL`.
+ * A production deployment never signs, also when a key is set by mistake. Production gets its tokens from the MQS service.
+ */
 export function downloadConfig(env: Record<string, string | undefined> = process.env, now: () => number = Date.now): DownloadConfig {
+  if (env.VERCEL_ENV === 'production') return { ok: false, reason: 'production' }
   const channel = (env.MQS_DOWNLOAD_CHANNEL ?? '').trim()
   if (!(ALLOWED_CHANNELS as readonly string[]).includes(channel)) return { ok: false, reason: 'bad-channel' }
   const key = signingKeyFromJwk(env.MQS_DOWNLOAD_TOKEN_SIGNING_KEY)
@@ -73,11 +78,16 @@ export function pickInstaller(manifest: ReleaseManifest, os: DownloadOs): Manife
   return files.find((file) => file.kind === 'nsis' && file.arch === 'x64') ?? files.find((file) => file.kind === 'nsis') ?? null
 }
 
+const INSTALLER_EXTENSION: Record<DownloadOs, string> = { mac: '.dmg', windows: '.exe' }
+
 /**
- * The address of the file on the download host. The manifest URL can be relative to the manifest.
- * An address outside `mqs/<channel>/` on the download host gives null.
+ * The address of the installer on the download host: exactly `/mqs/<channel>/<file.name>`.
+ * The manifest URL can be relative to the manifest, but it must name the same file.
+ * Each other target gives null: another host, an encoded byte, a `releases/` path, a manifest or another name.
  */
 export function installerUrl(file: ManifestFile, channel: string, os: DownloadOs): URL | null {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$/u.test(file.name) || !file.name.endsWith(INSTALLER_EXTENSION[os])) return null
+  if (file.url.includes('%')) return null
   let url: URL
   try {
     url = new URL(file.url, manifestUrl(channel, os))
@@ -85,10 +95,9 @@ export function installerUrl(file: ManifestFile, channel: string, os: DownloadOs
     return null
   }
   if (url.origin !== DOWNLOAD_ORIGIN || url.username || url.password) return null
-  if (!url.pathname.startsWith(`/mqs/${channel}/`) || url.pathname.includes('..')) return null
-  url.search = ''
-  url.hash = ''
-  return url
+  if (url.pathname.includes('%') || url.pathname !== `/mqs/${channel}/${file.name}`) return null
+  if (url.pathname.split('/').pop() !== file.name) return null
+  return new URL(`${DOWNLOAD_ORIGIN}/mqs/${channel}/${file.name}`)
 }
 
 export type ManifestResult =
@@ -97,21 +106,24 @@ export type ManifestResult =
 
 /** Reads `manifest-<os>.json` of the channel with a new token. The token never goes into a log line. */
 export async function fetchManifest(config: Extract<DownloadConfig, { ok: true }>, os: DownloadOs,
-  fetcher: typeof fetch = fetch): Promise<ManifestResult> {
-  let response: Response
+  fetcher: typeof fetch = fetch, timeoutMs = FETCH_TIMEOUT_MS): Promise<ManifestResult> {
+  let text: string
   try {
-    response = await fetcher(manifestUrl(config.channel, os), {
+    // The timeout covers the body too. A redirect is an error: the manifest must come from this address.
+    const response = await fetcher(manifestUrl(config.channel, os), {
       headers: { Authorization: `Bearer ${config.token()}` },
       cache: 'no-store',
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      redirect: 'error',
+      signal: AbortSignal.timeout(timeoutMs),
     })
+    if (response.status === 404) return { ok: false, status: 404, reason: `No ${os} build is published.` }
+    if (!response.ok) return { ok: false, status: 502, reason: `The download host answered ${response.status}.` }
+    const bytes = await readLimited(response, MANIFEST_MAX_BYTES)
+    if (bytes === null) return { ok: false, status: 502, reason: 'The manifest is too large.' }
+    text = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
   } catch {
     return { ok: false, status: 502, reason: 'The download host did not answer.' }
   }
-  if (response.status === 404) return { ok: false, status: 404, reason: `No ${os} build is published.` }
-  if (!response.ok) return { ok: false, status: 502, reason: `The download host answered ${response.status}.` }
-  const text = await response.text()
-  if (text.length > MANIFEST_MAX_BYTES) return { ok: false, status: 502, reason: 'The manifest is too large.' }
   let parsed: unknown
   try {
     parsed = JSON.parse(text)
@@ -123,13 +135,42 @@ export async function fetchManifest(config: Extract<DownloadConfig, { ok: true }
   return { ok: true, manifest, text }
 }
 
+/** The body as bytes, or null when it is longer than `limit` bytes. It stops reading at the limit. */
+async function readLimited(response: Response, limit: number): Promise<Uint8Array | null> {
+  const declared = Number(response.headers.get('content-length'))
+  if (Number.isFinite(declared) && declared > limit) return null
+  if (!response.body) return new Uint8Array(0)
+  const reader = response.body.getReader()
+  const parts: Uint8Array[] = []
+  let total = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    total += value.byteLength
+    if (total > limit) {
+      await reader.cancel().catch(() => undefined)
+      return null
+    }
+    parts.push(value)
+  }
+  const bytes = new Uint8Array(total)
+  let offset = 0
+  for (const part of parts) {
+    bytes.set(part, offset)
+    offset += part.byteLength
+  }
+  return bytes
+}
+
 /** The facts that the download page shows for one system. */
 export type DownloadInfo = { os: DownloadOs; version: string; bytes: number; name: string; label: string } | { os: DownloadOs; version: null }
 
-export async function downloadInfo(os: DownloadOs, config = downloadConfig()): Promise<DownloadInfo> {
+export async function downloadInfo(os: DownloadOs, config = downloadConfig(), fetcher: typeof fetch = fetch,
+  timeoutMs = FETCH_TIMEOUT_MS): Promise<DownloadInfo> {
   if (!config.ok) return { os, version: null }
-  const result = await fetchManifest(config, os)
-  if (!result.ok) return { os, version: null }
+  // A failure of the download host never breaks the page. The page then shows the "not available" line.
+  const result = await fetchManifest(config, os, fetcher, timeoutMs).catch(() => null)
+  if (!result || !result.ok) return { os, version: null }
   const file = pickInstaller(result.manifest, os)
   if (!file) return { os, version: null }
   return { os, version: result.manifest.version, bytes: file.bytes, name: file.name, label: result.manifest.label }

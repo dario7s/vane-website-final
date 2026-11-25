@@ -1,3 +1,4 @@
+import 'server-only'
 import { createPrivateKey, sign, type KeyObject } from 'node:crypto'
 
 /**
