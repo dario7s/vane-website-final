@@ -31,6 +31,10 @@ const nextConfig: NextConfig = {
 
   async headers() {
     return [
+      // Each deployment that is not production carries noindex.
+      ...(process.env.VERCEL_ENV === 'production'
+        ? []
+        : [{ source: '/:path*', headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }] }]),
       {
         source: '/studio/:path*',
         headers: [

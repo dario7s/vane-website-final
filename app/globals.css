@@ -337,3 +337,26 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Download buttons of the staging download prototype. The primary style takes the
+   accent color. The secondary style is the outline style of the coach page. */
+@layer components {
+.download-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-height: 56px;
+  padding: 0 26px;
+  border: 1px solid transparent;
+  border-radius: 9999px;
+  font-size: 14px;
+  font-weight: 550;
+  white-space: nowrap;
+  transition: filter 0.2s ease;
+}
+.download-button:hover { filter: brightness(0.9); }
+.download-button:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+.download-button-primary { color: #090b0b; background: var(--mqs-accent); }
+.download-button-secondary { color: #ddd; background: transparent; border-color: #ffffff30; }
+}

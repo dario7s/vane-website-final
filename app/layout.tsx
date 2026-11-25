@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from 'next'
 import localFont from 'next/font/local'
 import { headers } from 'next/headers'
 import { SiteChrome } from '@/components/layout/SiteChrome'
+import { VisitorOsProvider } from '@/lib/visitor-os-context'
+import { osFromRequestHeaders } from '@/lib/visitor-os'
 import './globals.css'
 
 const instrumentSans = localFont({
@@ -96,7 +98,8 @@ export const metadata: Metadata = {
     description:
       'One score. Seven domains. One shared language for movement quality.',
   },
-  robots: { index: true, follow: true },
+  // Each deployment that is not production (previews of this staging branch) stays out of search engines.
+  robots: process.env.VERCEL_ENV === 'production' ? { index: true, follow: true } : { index: false, follow: false },
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -106,6 +109,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const requestHeaders = await headers()
   const initialLocale = requestHeaders.get('x-vane-locale') === 'de' ? 'de' : 'en'
   const hasLocalePreference = requestHeaders.get('x-vane-locale-chosen') === '1'
+  const visitorOs = osFromRequestHeaders(requestHeaders)
 
   return (
     <html lang={initialLocale} className={`dark ${instrumentSans.variable} ${jetbrainsMono.variable} ${bebasNeue.variable}`}>
@@ -120,9 +124,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <a href="#main-content" className="sr-only !m-0 focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground">
           {initialLocale === 'de' ? 'Zum Inhalt springen' : 'Skip to content'}
         </a>
-        <SiteChrome initialLocale={initialLocale} hasLocalePreference={hasLocalePreference}>
-          {children}
-        </SiteChrome>
+        <VisitorOsProvider initialOs={visitorOs}>
+          <SiteChrome initialLocale={initialLocale} hasLocalePreference={hasLocalePreference}>
+            {children}
+          </SiteChrome>
+        </VisitorOsProvider>
       </body>
     </html>
   )
