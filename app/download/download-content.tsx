@@ -57,7 +57,8 @@ const copy = {
 }
 
 function formatSize(bytes: number, locale: Locale) {
-  const megabytes = bytes / 1048576
+  // Decimal megabytes, as the download dialogs of macOS and Windows show them.
+  const megabytes = bytes / 1_000_000
   return `${megabytes.toLocaleString(locale === 'de' ? 'de-AT' : 'en-US', { maximumFractionDigits: 1, minimumFractionDigits: 1 })} MB`
 }
 
