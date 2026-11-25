@@ -31,6 +31,11 @@ What changes for production:
 - The channel becomes `stable`.
 - The staging key leaves the Vercel project and the download host.
 - The `noindex` rule stays for previews only.
+- The download route has no sign-in of its own. On this branch, the Vercel login is the only lock. The production page must ask for the MQS sign-in before it gives a link.
+- `/download` sets `noindex` with a fixed value in `app/download/page.tsx`. Change this value at launch.
+- A token opens the complete channel for its lifetime, because the token of the download host has no path scope. Keep the lifetime short.
+- The `X-Robots-Tag` header comes from `VERCEL_ENV` at build time (`next.config.ts`). A build without the correct `VERCEL_ENV` gets the wrong header.
+- In a production deployment, `downloadConfig` never signs a token, also when a key is set by mistake.
 
 ## Start here: partner handoff
 
